@@ -34,7 +34,7 @@ The dashboard features two sliders.
     * **Lower Setting (e.g., 40):** The system becomes very strict. It blocks more fraud but might annoy more customers.
     * **Higher Setting (e.g., 80):** The system relaxes.
 
-### **2. Velocity Threshold
+### 2. Velocity Threshold
 * **What it does:** Acts as a "Speed Limit" for capital outflow.
 * **How I built it:** It flags transactions that deviate significantly from the norm.
 If a transaction exceeds this amount (e.g., $500) and shows other risk signals, it triggers an immediate review.
