@@ -123,7 +123,7 @@ def main():
     review_rate = len(df[df['Decision']=='MANUAL_REVIEW']) / len(df) * 100
     
     col1.metric("CNP Loss Reduction", "25%", "Target Met")
-    col2.metric("Impact Rate (Decline %)", f"{decline_rate:.1f}%", "-30% vs Legacy")
+    col2.metric("Impact Rate (Decline %)", f"{decline_rate:.1f}%")
     col3.metric("Review Queue", f"{len(df[df['Decision']=='MANUAL_REVIEW'])}", "Optimized")
     col4.metric("Rule Turnaround", "400ms", "Real-time")
 
