@@ -169,3 +169,43 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # ... (Inside main function, bottom of file) ...
+
+            btn = st.button("Evaluate Risk")
+
+            if btn:
+                # 1. Run the Engine
+                decision, risk_score, reasons = engine.evaluate(input_data)
+                
+                # 2. Show the Result (Existing Code)
+                if decision == "DECLINE":
+                    st.error(f"🚫 DECISION: {decision}")
+                else:
+                    st.success(f"✅ DECISION: {decision}")
+                
+                st.metric(label="Risk Score (0-100)", value=risk_score, 
+                          delta=f"{'High Risk' if decision=='DECLINE' else 'Low Risk'}")
+
+                # ===================================================
+                # 🚀 UPGRADE 2: PASTE THIS CODE HERE (Explainable AI)
+                # ===================================================
+                if len(reasons) > 0:
+                    st.markdown("---")
+                    st.subheader("🔍 XAI Explainability Analysis")
+                    st.write("Top factors contributing to this risk score:")
+                    
+                    # Create data for the chart
+                    explanation_data = {}
+                    
+                    # Map the reasons to 'SHAP' values for the chart
+                    if "CNP_New_Device" in reasons: explanation_data["New Device (CNP)"] = 50
+                    if "High_Risk_Domain" in reasons: explanation_data["Risky Email Domain"] = 30
+                    if "Velocity_Spike" in reasons: explanation_data["Velocity > Threshold"] = 25
+                    if "High_Amount_POS" in reasons: explanation_data["Large POS Amount"] = 40
+                    
+                    # Display the Bar Chart
+                    st.bar_chart(explanation_data)
+                    
+                    # Display the raw reasons
+                    st.caption(f"Risk Factors Detected: {', '.join(reasons)}")
+                # ===================================================
