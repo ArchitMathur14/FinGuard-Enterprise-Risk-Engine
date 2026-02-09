@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
 # --- CONFIGURATION ---
@@ -73,7 +72,7 @@ class RiskStrategyEngine:
             # Rule: Only flag massive outliers for POS to reduce friction
             if row['TransactionAmt'] > 800:
                 risk_score += 40
-                reasons.append("POS_Amount_Outlier")
+                reasons.append("High_Amount_POS")
 
         # STRATEGY C: "Big Data Velocity" (Cross-channel)
         if row['TransactionAmt'] > self.velocity_threshold: # Simplified velocity proxy
@@ -87,7 +86,7 @@ class RiskStrategyEngine:
         elif risk_score > 20:
             final_decision = "MANUAL_REVIEW"
 
-        return final_decision, risk_score, ", ".join(reasons)
+        return final_decision, risk_score, reasons
 
 # --- 3. THE PRESENTATION LAYER (Streamlit Dashboard) ---
 def main():
@@ -112,8 +111,13 @@ def main():
     df = st.session_state.df.copy()
     
     # Apply Logic
+    # We need to unpack the 3 values returned by evaluate
     results = df.apply(lambda x: engine.evaluate(x), axis=1)
-    df['Decision'], df['Risk_Score'], df['Reasons'] = zip(*results)
+    
+    # Separate the results into columns (Reasons is a list, so we join it for the dataframe view)
+    df['Decision'] = [res[0] for res in results]
+    df['Risk_Score'] = [res[1] for res in results]
+    df['Reasons'] = [", ".join(res[2]) for res in results]
 
     # --- KPI SECTION (Matching the Resume) ---
     st.divider()
@@ -142,70 +146,63 @@ def main():
         cnp_risk = df[(df['ProductCD']=='W') & (df['Risk_Score']>0)]
         st.dataframe(cnp_risk[['TransactionAmt', 'Device_Is_New', 'Decision']], height=300)
 
-    # --- SIMULATOR ---
+    # --- 4. Live Transaction Simulator (WITH UPGRADES) ---
     st.divider()
     st.subheader("🧪 Live Transaction Simulator")
-    c1, c2, c3 = st.columns(3)
-    sim_amt = c1.number_input("Amount ($)", 100)
-    sim_prod = c2.selectbox("Channel", ['W (Web/CNP)', 'H (Signature/POS)'])
-    sim_dev = c3.checkbox("Is New Device?")
     
-    if st.button("Evaluate Transaction"):
-        # Map inputs to schema
-        mock_row = {
-            'TransactionAmt': sim_amt,
-            'ProductCD': 'W' if 'W' in sim_prod else 'H',
-            'Device_Is_New': 1 if sim_dev else 0,
-            'P_emaildomain': 'gmail.com'
-        }
-        dec, score, reason = engine.evaluate(mock_row)
-        
-        if dec == "DECLINE":
-            st.error(f"⛔ DECLINE (Score: {score}) | Reason: {reason}")
-        elif dec == "APPROVE":
-            st.success(f"✅ APPROVE (Score: {score})")
-        else:
-            st.warning(f"⚠️ MANUAL REVIEW (Score: {score}) | Reason: {reason}")
+    with st.expander("Testing Console", expanded=True):
+        c1, c2 = st.columns(2)
+        with c1:
+            sim_amt = st.number_input("Amount ($)", value=120)
+            sim_dev = st.checkbox("Is New Device?")
+        with c2:
+            sim_prod = st.selectbox("Channel", ['W (Web/CNP)', 'H (Signature/POS)'])
+            sim_email = st.selectbox("Email Domain", ["gmail.com", "yahoo.com", "anon.net"])
+    
+        if st.button("Evaluate Transaction"):
+            # Map inputs to schema
+            input_data = {
+                'TransactionAmt': sim_amt,
+                'ProductCD': 'W' if 'W' in sim_prod else 'H',
+                'Device_Is_New': 1 if sim_dev else 0,
+                'P_emaildomain': sim_email
+            }
+            
+            # Run the Engine
+            decision, risk_score, reasons = engine.evaluate(input_data)
+            
+            # Display Decision
+            if decision == "DECLINE":
+                st.error(f"⛔ DECISION: {decision}")
+            elif decision == "APPROVE":
+                st.success(f"✅ APPROVE: {decision}")
+            else:
+                st.warning(f"⚠️ DECISION: {decision}")
+            
+            # Display Metric
+            st.metric("Calculated Risk Score", f"{risk_score}/100")
+
+            # --- UPGRADE 2: EXPLAINABLE AI (Visuals) ---
+            if len(reasons) > 0:
+                st.markdown("---")
+                st.subheader("🔍 XAI Explainability Analysis")
+                st.caption("Why was this decision made? Factor Contribution:")
+                
+                # Create data for the chart
+                explanation_data = {}
+                
+                # Map the reasons to 'SHAP' values for the chart
+                if "CNP_New_Device" in reasons: explanation_data["New Device (CNP)"] = 50
+                if "High_Risk_Domain" in reasons: explanation_data["Risky Email Domain"] = 30
+                if "Velocity_Spike" in reasons: explanation_data["Velocity > Threshold"] = 25
+                if "High_Amount_POS" in reasons: explanation_data["Large POS Amount"] = 40
+                
+                # Display the Bar Chart
+                st.bar_chart(explanation_data)
+                
+                # Display the raw reasons
+                st.write(f"**Detected Risk Drivers:** {', '.join(reasons)}")
 
 if __name__ == "__main__":
     main()
-    # ... (Inside main function, bottom of file) ...
-
-            btn = st.button("Evaluate Risk")
-
-            if btn:
-                # 1. Run the Engine
-                decision, risk_score, reasons = engine.evaluate(input_data)
-                
-                # 2. Show the Result (Existing Code)
-                if decision == "DECLINE":
-                    st.error(f"🚫 DECISION: {decision}")
-                else:
-                    st.success(f"✅ DECISION: {decision}")
-                
-                st.metric(label="Risk Score (0-100)", value=risk_score, 
-                          delta=f"{'High Risk' if decision=='DECLINE' else 'Low Risk'}")
-
-                # ===================================================
-                # 🚀 UPGRADE 2: PASTE THIS CODE HERE (Explainable AI)
-                # ===================================================
-                if len(reasons) > 0:
-                    st.markdown("---")
-                    st.subheader("🔍 XAI Explainability Analysis")
-                    st.write("Top factors contributing to this risk score:")
-                    
-                    # Create data for the chart
-                    explanation_data = {}
-                    
-                    # Map the reasons to 'SHAP' values for the chart
-                    if "CNP_New_Device" in reasons: explanation_data["New Device (CNP)"] = 50
-                    if "High_Risk_Domain" in reasons: explanation_data["Risky Email Domain"] = 30
-                    if "Velocity_Spike" in reasons: explanation_data["Velocity > Threshold"] = 25
-                    if "High_Amount_POS" in reasons: explanation_data["Large POS Amount"] = 40
-                    
-                    # Display the Bar Chart
-                    st.bar_chart(explanation_data)
-                    
-                    # Display the raw reasons
-                    st.caption(f"Risk Factors Detected: {', '.join(reasons)}")
-                # ===================================================
+    
